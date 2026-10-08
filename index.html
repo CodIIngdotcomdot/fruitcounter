@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Napi gyümölcsfogyasztás</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4fff5;
+      color: #243024;
+    }
+
+    header {
+      background: #4caf50;
+      color: white;
+      text-align: center;
+      padding: 28px 20px;
+    }
+
+    header h1 {
+      margin: 0 0 8px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      padding: 25px 20px;
+    }
+
+    .summary {
+      background: white;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 30px;
+      text-align: center;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .summary-number {
+      font-size: 48px;
+      font-weight: bold;
+      color: #4caf50;
+    }
+
+    .fruit-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 18px;
+    }
+
+    .fruit-card {
+      position: relative;
+      background: white;
+      border: 3px solid transparent;
+      border-radius: 18px;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      user-select: none;
+    }
+
+    .fruit-card:hover {
+      transform: translateY(-5px);
+      border-color: #8bc34a;
+    }
+
+    .fruit-card:active {
+      transform: scale(0.96);
+    }
+
+    .fruit-image {
+      font-size: 75px;
+      margin-bottom: 10px;
+    }
+
+    .fruit-name {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .count {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      min-width: 32px;
+      height: 32px;
+      padding: 5px;
+      border-radius: 50%;
+      background: #4caf50;
+      color: white;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .instructions {
+      text-align: center;
+      margin: 0 0 20px;
+      color: #607060;
+    }
+
+    .details {
+      background: white;
+      border-radius: 18px;
+      padding: 20px;
+      margin-top: 30px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .details h2 {
+      margin-top: 0;
+    }
+
+    #consumedList {
+      line-height: 1.8;
+    }
+
+    .buttons {
+      margin-top: 22px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .undo-button {
+      background: #ffca28;
+      color: #332600;
+    }
+
+    .reset-button {
+      background: #ef5350;
+      color: white;
+    }
+
+    .goal {
+      margin-top: 15px;
+    }
+
+    .progress-container {
+      height: 18px;
+      background: #e5e5e5;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress {
+      width: 0;
+      height: 100%;
+      background: #66bb6a;
+      transition: width 0.3s;
+    }
+
+    @media (max-width: 500px) {
+      .fruit-image {
+        font-size: 60px;
+      }
+
+      .summary-number {
+        font-size: 40px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>🍎 Napi gyümölcsfogyasztás</h1>
+  <div id="date"></div>
+</header>
+
+<main class="container">
+
+  <section class="summary">
+    <div>Ma elfogyasztott gyümölcsök:</div>
+    <div class="summary-number" id="total">0</div>
+    <div>adag</div>
+
+    <div class="goal">
+      Napi cél: <strong>5 adag</strong>
+      <div class="progress-container">
+        <div class="progress" id="progress"></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="instructions">
+    Kattints arra a gyümölcsre, amelyet ma fogyasztottál!
+  </p>
+
+  <section class="fruit-grid" id="fruitGrid"></section>
+
+  <section class="details">
+    <h2>Mai fogyasztás</h2>
+    <div id="consumedList">
+      Még nem választottál gyümölcsöt.
+    </div>
+
+    <div class="buttons">
+      <button class="undo-button" onclick="undoLast()">
+        ↩ Utolsó visszavonása
+      </button>
+
+      <button class="reset-button" onclick="resetDay()">
+        🗑 Mai adatok törlése
+      </button>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  const fruits = [
+    { name: "Alma", image: "🍎" },
+    { name: "Banán", image: "🍌" },
+    { name: "Narancs", image: "🍊" },
+    { name: "Körte", image: "🍐" },
+    { name: "Szőlő", image: "🍇" },
+    { name: "Eper", image: "🍓" },
+    { name: "Görögdinnye", image: "🍉" },
+    { name: "Őszibarack", image: "🍑" },
+    { name: "Ananász", image: "🍍" },
+    { name: "Cseresznye", image: "🍒" },
+    { name: "Kiwi", image: "🥝" },
+    { name: "Citrom", image: "🍋" }
+  ];
+
+  const dailyGoal = 5;
+
+  // Az aktuális dátum alapján külön mentjük minden nap adatait.
+  const today = new Date().toLocaleDateString("hu-HU");
+  const storageKey = "fruitTracker-" + today;
+
+  let data = JSON.parse(localStorage.getItem(storageKey)) || {};
+  let history = [];
+
+  fruits.forEach(fruit => {
+    if (data[fruit.name] === undefined) {
+      data[fruit.name] = 0;
+    }
+  });
+
+  document.getElementById("date").textContent = today;
+
+  function createFruitCards() {
+    const grid = document.getElementById("fruitGrid");
+    grid.innerHTML = "";
+
+    fruits.forEach(fruit => {
+      const card = document.createElement("div");
+      card.className = "fruit-card";
+
+      card.innerHTML = `
+        <div class="count">${data[fruit.name]}</div>
+        <div class="fruit-image">${fruit.image}</div>
+        <div class="fruit-name">${fruit.name}</div>
+      `;
+
+      card.addEventListener("click", () => addFruit(fruit.name));
+
+      grid.appendChild(card);
+    });
+  }
+
+  function addFruit(name) {
+    data[name]++;
+    history.push(name);
+
+    saveData();
+    updatePage();
+  }
+
+  function undoLast() {
+    if (history.length === 0) {
+      alert("Nincs visszavonható művelet.");
+      return;
+    }
+
+    const lastFruit = history.pop();
+
+    if (data[lastFruit] > 0) {
+      data[lastFruit]--;
+    }
+
+    saveData();
+    updatePage();
+  }
+
+  function resetDay() {
+    const confirmed = confirm(
+      "Biztosan törölni szeretnéd a mai adatokat?"
+    );
+
+    if (!confirmed) return;
+
+    fruits.forEach(fruit => {
+      data[fruit.name] = 0;
+    });
+
+    history = [];
+
+    saveData();
+    updatePage();
+  }
+
+  function saveData() {
+    localStorage.setItem(storageKey, JSON.stringify(data));
+  }
+
+  function getTotal() {
+    return Object.values(data).reduce((sum, value) => sum + value, 0);
+  }
+
+  function updateSummary() {
+    const total = getTotal();
+
+    document.getElementById("total").textContent = total;
+
+    const percentage = Math.min(
+      (total / dailyGoal) * 100,
+      100
+    );
+
+    document.getElementById("progress").style.width =
+      percentage + "%";
+  }
+
+  function updateConsumedList() {
+    const list = document.getElementById("consumedList");
+
+    const consumed = fruits.filter(
+      fruit => data[fruit.name] > 0
+    );
+
+    if (consumed.length === 0) {
+      list.innerHTML = "Még nem választottál gyümölcsöt.";
+      return;
+    }
+
+    list.innerHTML = consumed
+      .map(
+        fruit =>
+          `${fruit.image} <strong>${fruit.name}</strong>: ${data[fruit.name]} adag`
+      )
+      .join("<br>");
+  }
+
+  function updatePage() {
+    createFruitCards();
+    updateSummary();
+    updateConsumedList();
+  }
+
+  updatePage();
+</script>
+
+</body>
+</html>
